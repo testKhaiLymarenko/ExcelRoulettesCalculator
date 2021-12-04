@@ -5,18 +5,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/xuri/excelize/v2"
 )
-
-/*
-	1. Начального значения если нет - ошибка  == ибо это первый месяц
-	2. Проверить, чтобы у всех клеточек было проверено их максимальное и начальное значение  - отнять только от последнего значения,
-		если его нет  - то значит месяц пустой  = (если хотя бы у одного аккаунта есть данные значит это не ошибка, а $0.00)
-	3. Структура
-*/
-
-var logins = [...]string{"lemon3100_", "rabascal", "destoki2019", "destoki2001", "destoki2002"}
 
 const (
 	WTFSKINS_L = "B"
@@ -34,6 +26,11 @@ type Accounts struct {
 	pvproLastVal     int
 }
 
+func (a *Accounts) CalculateS() string {
+	return "\t\t\t" + a.login + ":\nwtfskins: " + fmt.Sprintf("$%.2f\n", a.wtfskinsLastVal-a.wtfskinsFirstVal) + "csgolive: " +
+		fmt.Sprintf("$%.2f\n", a.csgoliveLastVal-a.csgoliveFirstVal) + "pvpro: " + strconv.Itoa(a.pvproLastVal-a.pvproFirstVal) + "\n"
+}
+
 func main() {
 	exFile, err := excelize.OpenFile("d:\\list.xlsx")
 
@@ -44,15 +41,19 @@ func main() {
 	}
 
 	accounts := []Accounts{
-		{login: "l...."},
-		{login: "r...."},
-		{login: "d...9"},
-		{login: "d....1"},
-		{login: "de.."},
+		{login: "..."},
+		{login: "ra.."},
+		{login: "de...9"},
+		{login: "d...1"},
+		{login: "d..2"},
 	}
 
-	checkFirstCells(exFile)
+	checkFirstCells(exFile, &accounts)
 	getLastCellName(exFile, &accounts)
+
+	for _, account := range accounts {
+		fmt.Println(account.CalculateS())
+	}
 
 	/*
 			IS_PVPRO, NOT_PVPRO := true, false
@@ -89,11 +90,13 @@ func main() {
 
 func getLastCellName(exFile *excelize.File, accounts *[]Accounts) {
 
+	var wg sync.WaitGroup
+
 	getLastCellValue := func(account *Accounts) {
 
+		//B - wtfskins, C - csgolive, D - pvpro
 		for i := 'B'; i <= 'D'; i++ {
-
-			for j := 34; j > 2; j-- {
+			for j := 33; j > 2; j-- {
 				cell, _ := exFile.GetCellValue(account.login, string(i)+strconv.Itoa(j))
 				if cell != "" {
 
@@ -127,46 +130,108 @@ func getLastCellName(exFile *excelize.File, accounts *[]Accounts) {
 			}
 
 		}
-
+		wg.Done() //tells that this goroutine finished working
 	}
 
-	//cuz value is copied but not &
-	for i, _ := range *accounts {
-		getLastCellValue(&(*accounts)[i])
+	addCashoutCellValues := func(account *Accounts) {
+
+		//B - wtfskins, C - csgolive, D - pvpro
+		for i := 'B'; i <= 'D'; i++ {
+			for j := 3; j <= 33; j++ {
+				cell, _ := exFile.GetCellValue(account.login, string(i)+strconv.Itoa(j))
+				if strings.Contains(cell, "->") {
+					if i == 'B' || i == 'C' { //Example: $0.29 -> $0.02
+						before, _ := strconv.ParseFloat(cell[1:strings.Index(cell, " ->")], 64)
+						after, _ := strconv.ParseFloat(cell[strings.Index(cell, " $")+2:], 64)
+
+						if i == 'B' {
+							account.wtfskinsLastVal += (before - after)
+						} else if i == 'C' {
+							account.csgoliveLastVal += (before - after)
+						}
+					} else if i == 'D' { //Example: 4088 coins + 190 crystals -> 3989 coins + 190 crystals
+						before, _ := strconv.Atoi(cell[:strings.Index(cell, " ")])
+						after, _ := strconv.Atoi(cell[strings.Index(cell, "> ")+2 : strings.LastIndex(cell, " c")-2])
+
+						account.pvproLastVal += (before - after)
+					}
+				}
+
+			}
+
+		}
+
+		//wg.Done()
 	}
+
+	for i := range *accounts {
+		go getLastCellValue(&(*accounts)[i]) //cuz value is copied but not &
+		wg.Add(1)
+	}
+	wg.Wait()
+
+	for i := range *accounts {
+		addCashoutCellValues(&(*accounts)[i]) //cuz value is copied but not &
+		//wg.Add(1)
+	}
+	//wg.Wait()
 }
 
-func checkFirstCells(exFile *excelize.File) {
+func checkFirstCells(exFile *excelize.File, accounts *[]Accounts) {
 
 	var buff strings.Builder
 
-	for _, login := range logins {
+	for i := 'B'; i <= 'D'; i++ {
+		for j := 0; j < len(*accounts); i++ {
+			login := (*accounts)[j].login
+			empty := false
 
-		var empty bool
-		var str string
-		cell, _ := exFile.GetCellValue(login, WTFSKINS_L+"2")
+			cell, _ := exFile.GetCellValue(login, string(i)+"2")
 
-		if cell == "" {
-			empty = true
-			str = "wtfskins "
-		}
+			if i == 'B' {
 
-		cell, _ = exFile.GetCellValue(login, CSGOLIVE_L+"2")
+				if cell == "" {
+					empty = true
+					buff.WriteString(login + ": wtfskins")
+				} else {
+					if val, err := strconv.ParseFloat(cell[1:], 64); err == nil {
+						(*accounts)[j].wtfskinsFirstVal = val
+					} else {
+						fmt.Println(err)
+					}
+				}
 
-		if cell == "" {
-			empty = true
-			str += "csgolives "
-		}
+			} else if i == 'C' {
 
-		cell, _ = exFile.GetCellValue(login, PVPRO_L+"2")
+				if cell == "" {
+					empty = true
+					buff.WriteString(login + ": csgolives")
+				} else {
+					if val, err := strconv.ParseFloat(cell[1:], 64); err == nil {
+						(*accounts)[j].csgoliveLastVal = val
+					} else {
+						fmt.Println(err)
+					}
+				}
 
-		if cell == "" {
-			empty = true
-			str += "pvpro"
-		}
+			} else if i == 'D' {
 
-		if empty {
-			buff.WriteString(login + ": " + str + "\n")
+				if cell == "" {
+					empty = true
+					buff.WriteString(login + ": pvpro")
+				} else {
+					if val, err := strconv.Atoi(cell[:strings.Index(cell, " ")]); err == nil {
+						(*accounts)[j].pvproFirstVal = val
+					} else {
+						fmt.Println(err)
+					}
+				}
+
+			}
+
+			if empty {
+				buff.WriteString("/n")
+			}
 		}
 	}
 

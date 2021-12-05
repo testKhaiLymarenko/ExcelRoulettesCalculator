@@ -10,26 +10,34 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-const (
-	WTFSKINS_L = "B"
-	CSGOLIVE_L = "C"
-	PVPRO_L    = "D"
-)
-
 type Accounts struct {
-	login            string
+	login string
+
 	wtfskinsFirstVal float64 //dollars
 	wtfskinsLastVal  float64
 	csgoliveFirstVal float64
 	csgoliveLastVal  float64
 	pvproFirstVal    int //coins
 	pvproLastVal     int
+
+	wtfskinsIncome     float64
+	csgoliveIncome     float64
+	pvproCoinsIncome   int
+	pvproDollarsIncome float64
 }
 
 func (a *Accounts) CalculateS() string {
-	return "\t\t\t" + a.login + ":\nwtfskins: " + fmt.Sprintf("$%.2f\n", a.wtfskinsLastVal-a.wtfskinsFirstVal) + "csgolive: " +
-		fmt.Sprintf("$%.2f\n", a.csgoliveLastVal-a.csgoliveFirstVal) + "pvpro: " + strconv.Itoa(a.pvproLastVal-a.pvproFirstVal) + "\n"
+
+	a.wtfskinsIncome = a.wtfskinsLastVal - a.wtfskinsFirstVal
+	a.csgoliveIncome = a.csgoliveLastVal - a.csgoliveFirstVal
+	a.pvproCoinsIncome = a.pvproLastVal - a.pvproFirstVal
+	a.pvproDollarsIncome = float64(a.pvproCoinsIncome) / 1000
+
+	return "\t\t\t" + a.login + ":\nwtfskins: " + fmt.Sprintf("$%.2f\n", a.wtfskinsIncome) + "csgolive: " +
+		fmt.Sprintf("$%.2f\n", a.csgoliveIncome) + "pvpro:    $" + fmt.Sprintf("%.2f (%d coins)\n", a.pvproDollarsIncome, a.pvproCoinsIncome)
 }
+
+//сделать: ошибка, когда нет первого значения: wtfskins: d..., d..., l.., и т.д
 
 func main() {
 	exFile, err := excelize.OpenFile("d:\\list.xlsx")
@@ -41,51 +49,34 @@ func main() {
 	}
 
 	accounts := []Accounts{
-		{login: "..."},
-		{login: "ra.."},
-		{login: "de...9"},
-		{login: "d...1"},
-		{login: "d..2"},
+		{login: "....."},
+		{login: "...."},
+		{login: "d...."},
+		{login: "...."},
+		{login: "d....2"},
 	}
 
-	checkFirstCells(exFile, &accounts)
+	var totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome float64
+	var totalPvproCoinsIncome int
+
+	checkAndGetFirstCells(exFile, &accounts)
 	getLastCellName(exFile, &accounts)
 
 	for _, account := range accounts {
 		fmt.Println(account.CalculateS())
+
+		totalWtfskinsIncome += account.wtfskinsIncome
+		totalCsgolivesIncome += account.csgoliveIncome
+
+		totalPvproCoinsIncome += account.pvproCoinsIncome
+		totalPvproDollarsIncome += account.pvproDollarsIncome
 	}
 
-	/*
-			IS_PVPRO, NOT_PVPRO := true, false
-		roulette := map[string]string{
-			"B2": "B", //wtfskins
-			"C2": "C", //csgolines
-			"D2": "D", //pvpro
-		}
+	fmt.Printf("\n\t\t\tTotal Income (%d accounts):\nwtfskins:  $%.2f\ncsgolives: $%.2f\npvpro:     $%.2f (%d coins)\n\nOverall:   $%.2f\n",
+		len(accounts), totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome, totalPvproCoinsIncome,
+		(totalWtfskinsIncome + totalCsgolivesIncome + totalPvproDollarsIncome))
 
-		for _, login := range logins {
-			for firstCellName, letter := range roulette {
-				firstCellValue, _ := exFile.GetCellValue(login, firstCellName)
-				lastCellValue, _ := exFile.GetCellValue(login, getLastCellS(exFile, login, letter))
-
-				switch firstCellName {
-				case "B2":
-					fmt.Printf("%s wtfskins: $%.2f\n", login,
-						getIncome(exFile, login, letter, firstCellValue, lastCellValue, NOT_PVPRO))
-				case "C2":
-					fmt.Printf("%s csgolive: $%.2f\n", login,
-						getIncome(exFile, login, firstCellName, letter, firstCellValue, lastCellValue, NOT_PVPRO))
-				case "D2":
-					fmt.Printf("%s pvpro:    $%.2f (%.0f coins) \n", login,
-						getIncome(exFile, login, letter, firstCellValue, lastCellValue, IS_PVPRO),
-						getIncome(exFile, login, letter, firstCellValue, lastCellValue, IS_PVPRO)*100)
-				}
-
-			}
-			fmt.Println()
-		}
-
-		fmt.Scanln()*/
+	fmt.Scanln()
 }
 
 func getLastCellName(exFile *excelize.File, accounts *[]Accounts) {
@@ -151,7 +142,7 @@ func getLastCellName(exFile *excelize.File, accounts *[]Accounts) {
 						}
 					} else if i == 'D' { //Example: 4088 coins + 190 crystals -> 3989 coins + 190 crystals
 						before, _ := strconv.Atoi(cell[:strings.Index(cell, " ")])
-						after, _ := strconv.Atoi(cell[strings.Index(cell, "> ")+2 : strings.LastIndex(cell, " c")-2])
+						after, _ := strconv.Atoi(cell[strings.Index(cell, "> ")+2 : strings.LastIndex(cell, " co")])
 
 						account.pvproLastVal += (before - after)
 					}
@@ -161,7 +152,7 @@ func getLastCellName(exFile *excelize.File, accounts *[]Accounts) {
 
 		}
 
-		//wg.Done()
+		wg.Done()
 	}
 
 	for i := range *accounts {
@@ -171,26 +162,29 @@ func getLastCellName(exFile *excelize.File, accounts *[]Accounts) {
 	wg.Wait()
 
 	for i := range *accounts {
-		addCashoutCellValues(&(*accounts)[i]) //cuz value is copied but not &
-		//wg.Add(1)
+		go addCashoutCellValues(&(*accounts)[i]) //cuz value is copied but not &
+		wg.Add(1)
 	}
-	//wg.Wait()
+	wg.Wait()
 }
 
-func checkFirstCells(exFile *excelize.File, accounts *[]Accounts) {
+//check if first cells contain data from the previous month and fill the accounts' struct if yes
+func checkAndGetFirstCells(exFile *excelize.File, accounts *[]Accounts) {
 
 	var buff strings.Builder
 
+	//B - wtfskins, C - csgolive, D - pvpro
 	for i := 'B'; i <= 'D'; i++ {
-		for j := 0; j < len(*accounts); i++ {
+		//check only one column of each account
+		for j := 0; j < len(*accounts); j++ {
 			login := (*accounts)[j].login
+			//need to
 			empty := false
 
-			cell, _ := exFile.GetCellValue(login, string(i)+"2")
+			cell, _ := exFile.GetCellValue(login, string(i)+"2") //B + 2 = B2 cell
 
 			if i == 'B' {
-
-				if cell == "" {
+				if cell == "" { //
 					empty = true
 					buff.WriteString(login + ": wtfskins")
 				} else {
@@ -200,22 +194,18 @@ func checkFirstCells(exFile *excelize.File, accounts *[]Accounts) {
 						fmt.Println(err)
 					}
 				}
-
 			} else if i == 'C' {
-
 				if cell == "" {
 					empty = true
 					buff.WriteString(login + ": csgolives")
 				} else {
 					if val, err := strconv.ParseFloat(cell[1:], 64); err == nil {
-						(*accounts)[j].csgoliveLastVal = val
+						(*accounts)[j].csgoliveFirstVal = val
 					} else {
 						fmt.Println(err)
 					}
 				}
-
 			} else if i == 'D' {
-
 				if cell == "" {
 					empty = true
 					buff.WriteString(login + ": pvpro")
@@ -226,11 +216,10 @@ func checkFirstCells(exFile *excelize.File, accounts *[]Accounts) {
 						fmt.Println(err)
 					}
 				}
-
 			}
 
 			if empty {
-				buff.WriteString("/n")
+				buff.WriteString("\n")
 			}
 		}
 	}

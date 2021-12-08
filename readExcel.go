@@ -29,16 +29,27 @@ type Accounts struct {
 
 func (a *Accounts) CalculateS() string {
 
-	a.wtfskinsIncome = a.wtfskinsLastVal - a.wtfskinsFirstVal
-	a.csgoliveIncome = a.csgoliveLastVal - a.csgoliveFirstVal
-	a.pvproCoinsIncome = a.pvproLastVal - a.pvproFirstVal
-	a.pvproDollarsIncome = float64(a.pvproCoinsIncome) / 1000
+	//last value has 0 only if every cell has no value, so income values have 0 by default
+
+	if a.wtfskinsLastVal != 0 {
+		a.wtfskinsIncome = a.wtfskinsLastVal - a.wtfskinsFirstVal
+	}
+
+	if a.csgoliveLastVal != 0 {
+		a.csgoliveIncome = a.csgoliveLastVal - a.csgoliveFirstVal
+	}
+
+	if a.pvproLastVal != 0 {
+		a.pvproCoinsIncome = a.pvproLastVal - a.pvproFirstVal
+		a.pvproDollarsIncome = float64(a.pvproCoinsIncome) / 1000
+	}
 
 	return "\t\t\t" + a.login + ":\nwtfskins: " + fmt.Sprintf("$%.2f\n", a.wtfskinsIncome) + "csgolive: " +
 		fmt.Sprintf("$%.2f\n", a.csgoliveIncome) + "pvpro:    $" + fmt.Sprintf("%.2f (%d coins)\n\n", a.pvproDollarsIncome, a.pvproCoinsIncome)
 }
 
-func getLastCellName(exFile *excelize.File, accounts *[]Accounts) {
+//gets last value and add cashout cell values to them
+func getLastCellValues(exFile *excelize.File, accounts *[]Accounts) {
 
 	var wg sync.WaitGroup
 

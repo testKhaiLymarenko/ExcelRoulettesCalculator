@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/fatih/color"
@@ -9,7 +11,21 @@ import (
 )
 
 func main() {
-	exFile, err := excelize.OpenFile("d:\\list.xlsx")
+
+	workFolder := "D:\\Program Files\\...."
+
+	fmt.Print(workFolder + ": ")
+
+	fileName := bufio.NewScanner(os.Stdin) //2021年12月のルーレット.xlsx
+	fileName.Scan()
+
+	if fileName.Err() != nil {
+		fmt.Println(fileName.Err())
+		fmt.Scanln()
+		return
+	}
+
+	exFile, err := excelize.OpenFile(workFolder + "\\" + fileName.Text())
 
 	if err != nil {
 		fmt.Println(err)
@@ -18,10 +34,10 @@ func main() {
 	}
 
 	accounts := []Accounts{
-		{login: "le.."},
-		{login: "ra.."},
-		{login: "d...9."},
-		{login: "d....1"},
+		{login: "l....."},
+		{login: "r......"},
+		{login: "d......."},
+		{login: ".....1"},
 		{login: "d...."},
 	}
 
@@ -31,20 +47,20 @@ func main() {
 
 	//both functions store data to the struct
 	checkAndGetFirstCells(exFile, &accounts)
-	getLastCellName(exFile, &accounts)
+	getLastCellValues(exFile, &accounts)
 
 	//Print income of each account and count the total income in loop to print it later
 	for i := range accounts {
 		switch accounts[i].login { //index is needed cuz range-loop copies accounts[i] to account, but not a pointer
-		case "...":
+		case ".......":
 			color.Red(accounts[i].CalculateS())
-		case "..l":
+		case "......":
 			color.Magenta(accounts[i].CalculateS())
-		case "de...1...":
+		case "d...":
 			color.Yellow(accounts[i].CalculateS())
 		case "d.":
 			color.Cyan(accounts[i].CalculateS())
-		case "d....":
+		case "d.....":
 			color.White(accounts[i].CalculateS())
 		}
 
@@ -60,6 +76,24 @@ func main() {
 	totalOverallIncome = totalWtfskinsIncome + totalCsgolivesIncome + totalPvproDollarsIncome
 	color.Green("\nTotal Income (%d accounts):\n\n\twtfskins:  $%.2f\n\tcsgolives: $%.2f\n\tpvpro:     $%.2f (%d coins)\n\nOverall:   $%.2f\n",
 		len(accounts), totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome, totalPvproCoinsIncome, totalOverallIncome)
+
+	for {
+		fmt.Print("\n\nDo you want to store values to .xls file? (y/n): ")
+		var userInput string
+		fmt.Scanln(&userInput)
+
+		if userInput == "y" {
+			break
+		} else if userInput == "n" {
+			fmt.Printf("\n\nPress any key to exit ...")
+			fmt.Scanln()
+			return
+		} else {
+			continue
+		}
+	}
+
+	//Write To Excel block
 
 	incomeSheetName := exFile.GetSheetName(0)
 
@@ -113,7 +147,10 @@ func main() {
 
 	if err := exFile.Save(); err != nil {
 		fmt.Println(err)
+	} else {
+		color.Green("\n\nCalculated values have been successfully stored to .xls file")
 	}
 
+	fmt.Printf("\n\nPress any key to exit ...")
 	fmt.Scanln()
 }

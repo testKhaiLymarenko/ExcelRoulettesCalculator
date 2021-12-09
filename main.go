@@ -1,31 +1,35 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
+	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/xuri/excelize/v2"
 )
 
+//Проверять есть ли значение в клетке - и если оно есть и не такое же точно - уведомить об этом, если одинаковы то не записывать
 func main() {
 
-	workFolder := "D:\\Program Files\\...."
+	workFolder := "D:\\Program Files\\MEGAsync\\MEGAsync\\Internet Deals\\Steam\\ルーレット"
+	fileTotalIncomeName := "_ルーレットの総収入.xlsx"
 
-	fmt.Print(workFolder + ": ")
+	/*fmt.Print(workFolder + ": ")
 
-	fileName := bufio.NewScanner(os.Stdin) //2021年12月のルーレット.xlsx
-	fileName.Scan()
+	fileMonthName := bufio.NewScanner(os.Stdin) //2021年12月のルーレット.xlsx
+	fileMonthName.Scan()
 
-	if fileName.Err() != nil {
-		fmt.Println(fileName.Err())
+	if fileMonthName.Err() != nil {
+		fmt.Println(fileMonthName.Err())
 		fmt.Scanln()
 		return
-	}
+	}*/
 
-	exFile, err := excelize.OpenFile(workFolder + "\\" + fileName.Text())
+	//exFile, err := excelize.OpenFile(workFolder + "\\" + fileMonthName.Text())
+	exFile, err := excelize.OpenFile(workFolder + "\\" + "2021年12月のルーレット.xlsx")
 
 	if err != nil {
 		fmt.Println(err)
@@ -34,10 +38,10 @@ func main() {
 	}
 
 	accounts := []Accounts{
-		{login: "l....."},
-		{login: "r......"},
-		{login: "d......."},
-		{login: ".....1"},
+		{login: "l///"},
+		{login: "r....."},
+		{login: "d....."},
+		{login: "d....."},
 		{login: "d...."},
 	}
 
@@ -52,13 +56,13 @@ func main() {
 	//Print income of each account and count the total income in loop to print it later
 	for i := range accounts {
 		switch accounts[i].login { //index is needed cuz range-loop copies accounts[i] to account, but not a pointer
-		case ".......":
+		case "l.....":
 			color.Red(accounts[i].CalculateS())
-		case "......":
+		case "r.....":
 			color.Magenta(accounts[i].CalculateS())
-		case "d...":
+		case "d.....":
 			color.Yellow(accounts[i].CalculateS())
-		case "d.":
+		case ".....":
 			color.Cyan(accounts[i].CalculateS())
 		case "d.....":
 			color.White(accounts[i].CalculateS())
@@ -77,7 +81,7 @@ func main() {
 	color.Green("\nTotal Income (%d accounts):\n\n\twtfskins:  $%.2f\n\tcsgolives: $%.2f\n\tpvpro:     $%.2f (%d coins)\n\nOverall:   $%.2f\n",
 		len(accounts), totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome, totalPvproCoinsIncome, totalOverallIncome)
 
-	for {
+	/*for {
 		fmt.Print("\n\nDo you want to store values to .xls file? (y/n): ")
 		var userInput string
 		fmt.Scanln(&userInput)
@@ -91,9 +95,9 @@ func main() {
 		} else {
 			continue
 		}
-	}
+	}*/
 
-	//Write To Excel block
+	//Write To fileMonth income for the whole month
 
 	incomeSheetName := exFile.GetSheetName(0)
 
@@ -151,6 +155,69 @@ func main() {
 		color.Green("\n\nCalculated values have been successfully stored to .xls file")
 	}
 
-	fmt.Printf("\n\nPress any key to exit ...")
-	fmt.Scanln()
+	//Work with IncomeFile
+
+	//2021年12月のルーレット.xlsx
+	//fileMonthNameS := fileMonthName.Text()
+	fileMonthNameS := "2021年12月のルーレット.xlsx"
+	incomeYear, _ := strconv.Atoi(fileMonthNameS[:4])
+	incomeMonth, _ := strconv.Atoi(fileMonthNameS[7:strings.Index(fileMonthNameS, "月")]) //7 cuz 年 is 3 bytes
+
+	exFileIncome, err := excelize.OpenFile(workFolder + "\\" + fileTotalIncomeName)
+
+	if err != nil {
+		fmt.Println(err)
+		fmt.Scanln()
+		return
+	}
+
+	sheetsNumber := 0
+	for {
+		incomeSheetName = exFileIncome.GetSheetName(sheetsNumber)
+
+		if incomeSheetName == "" {
+			break
+		}
+
+		sheetsNumber++
+	}
+
+	sheetYearIndex := incomeYear - 2020 //2020 - first sheet (at index 0)
+
+	resp, err := http.Get("https://api.privatbank.ua/p24api/exchange_rates?json&date=" + time.Now().Format("02.01.2006"))
+
+	if err != nil {
+		fmt.Println(err)
+		fmt.Scanln()
+		return
+	}
+
+	defer resp.Body.Close()
+
+	buff := make([]byte, 5000) //5000 characters should be enough for Privat24 Json response
+	resp.Body.Read(buff)
+
+	//remove useless from the beginning ""date":"09.12.2021","bank":"PB","baseCurrency":980,"baseCurrencyLit":"UAH","exchangeRate":["
+	privatDataS := string(buff)[strings.Index(string(buff), "[")+1:]
+	fmt.Println(privatDataS)
+
+	err = exFileIncome.SetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "B"+strconv.Itoa(incomeMonth+1),
+		fmt.Sprintf("$%.2f", totalOverallIncome))
+
+	if err != nil {
+		fmt.Println(err)
+		fmt.Scanln()
+		return
+	}
+
+	err = exFileIncome.Save()
+
+	if err != nil {
+		fmt.Println(err)
+		fmt.Scanln()
+		return
+	}
+
+	//fmt.Printf("\n\nPress any key to exit ...")
+	//fmt.Scanln()
 }

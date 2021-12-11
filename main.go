@@ -1,10 +1,9 @@
 package main
 
 import (
-	"encoding/json"
+	"bufio"
 	"fmt"
-	"io/ioutil"
-	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -13,13 +12,12 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-//брать курс валют с НБУ
 func main() {
 
 	workFolder := "D:\\Program Files\\MEGAsync\\MEGAsync\\Internet Deals\\Steam\\ルーレット"
 	fileTotalIncomeName := "_ルーレットの総収入.xlsx"
 
-	/*fmt.Print(workFolder + ": ")
+	fmt.Print(workFolder + ": ")
 
 	fileMonthName := bufio.NewScanner(os.Stdin) //2021年12月のルーレット.xlsx
 	fileMonthName.Scan()
@@ -28,10 +26,10 @@ func main() {
 		fmt.Println(fileMonthName.Err())
 		fmt.Scanln()
 		return
-	}*/
+	}
 
-	//exFile, err := excelize.OpenFile(workFolder + "\\" + fileMonthName.Text())
-	exFile, err := excelize.OpenFile(workFolder + "\\" + "2021年12月のルーレット.xlsx")
+	exFile, err := excelize.OpenFile(workFolder + "\\" + fileMonthName.Text())
+	//exFile, err := excelize.OpenFile(workFolder + "\\" + "2021年12月のルーレット.xlsx") // --> for debug
 
 	if err != nil {
 		fmt.Println(err)
@@ -40,11 +38,11 @@ func main() {
 	}
 
 	accounts := []Accounts{
-		{login: "l......_"},
-		{login: ".....l"},
-		{login: "de....9"},
+		{login: "l...."},
+		{login: "ra....."},
+		{login: "d....."},
+		{login: "d....."},
 		{login: "d...."},
-		{login: "....."},
 	}
 
 	var totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome float64
@@ -60,13 +58,13 @@ func main() {
 		switch accounts[i].login { //index is needed cuz range-loop copies accounts[i] to account, but not a pointer
 		case "....._":
 			color.Red(accounts[i].CalculateS())
-		case "r.....":
+		case "r.....l":
 			color.Magenta(accounts[i].CalculateS())
-		case "d...":
+		case "d......9":
 			color.Yellow(accounts[i].CalculateS())
-		case "de....":
+		case "d....":
 			color.Cyan(accounts[i].CalculateS())
-		case "d......2":
+		case ".....2":
 			color.White(accounts[i].CalculateS())
 		}
 
@@ -83,8 +81,19 @@ func main() {
 	color.Green("\nTotal Income (%d accounts):\n\n\twtfskins:  $%.2f\n\tcsgolives: $%.2f\n\tpvpro:     $%.2f (%d coins)\n\nOverall:   $%.2f\n",
 		len(accounts), totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome, totalPvproCoinsIncome, totalOverallIncomeInDollars)
 
-	/*for {
-		fmt.Print("\n\nDo you want to store values to .xls file? (y/n): ")
+	// writeExcel section
+
+	//All of these needed just to print Month_year.xlsx (December_2021.xlsx)
+	//2021年12月のルーレット.xlsx
+	incomeMonth, _ := strconv.Atoi(fileMonthName.Text()[7:strings.Index(fileMonthName.Text(), "月")]) //7 cuz '年' consists of 3 bytes//7 cuz '年' consists of 3 bytes
+	incomeYear, _ := strconv.Atoi(fileMonthName.Text()[:4])
+
+	monthT := time.Month(incomeMonth)
+	fileMonthNameAlias := monthT.String() + "_" + strconv.Itoa(incomeYear) + ".xlsx"
+
+	//Ask (1/2)
+	for {
+		fmt.Printf("\n\nDo you want to store values into %s? (y/n): ", fileMonthNameAlias)
 		var userInput string
 		fmt.Scanln(&userInput)
 
@@ -97,177 +106,30 @@ func main() {
 		} else {
 			continue
 		}
-	}*/
-
-	//Write To fileMonth income for the whole month
-
-	incomeSheetName := exFile.GetSheetName(0)
-
-	for i := 'B'; i <= 'D'; i++ {
-		for j := range accounts {
-
-			if i == 'B' {
-				err := exFile.SetCellValue(incomeSheetName, "B"+strconv.Itoa(j+2),
-					fmt.Sprintf("+$%.2f", accounts[j].wtfskinsIncome))
-
-				if err != nil {
-					fmt.Println(err)
-				}
-			} else if i == 'C' {
-				err := exFile.SetCellValue(incomeSheetName, "C"+strconv.Itoa(j+2),
-					fmt.Sprintf("+$%.2f", accounts[j].csgoliveIncome))
-
-				if err != nil {
-					fmt.Println(err)
-				}
-			} else if i == 'D' {
-				err := exFile.SetCellValue(incomeSheetName, "D"+strconv.Itoa(j+2),
-					"+"+strconv.Itoa(accounts[j].pvproCoinsIncome)+" coins")
-
-				if err != nil {
-					fmt.Println(err)
-				}
-			}
-		}
 	}
 
-	if err := exFile.Save(); err != nil {
-		fmt.Println(err)
-	}
+	writeToFileMonthIncome(exFile, &accounts, totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome,
+		totalOverallIncomeInDollars, totalPvproCoinsIncome, fileMonthName.Text())
 
-	if err := exFile.SetCellValue(incomeSheetName, "B8", fmt.Sprintf("+$%.2f", totalWtfskinsIncome)); err != nil {
-		fmt.Println(err)
-	}
-
-	if err := exFile.SetCellValue(incomeSheetName, "C8", fmt.Sprintf("+$%.2f", totalCsgolivesIncome)); err != nil {
-		fmt.Println(err)
-	}
-
-	if err := exFile.SetCellValue(incomeSheetName, "D8", fmt.Sprintf("+%d coins (+$%.2f)", totalPvproCoinsIncome, totalPvproDollarsIncome)); err != nil {
-		fmt.Println(err)
-	}
-
-	if err := exFile.SetCellValue(incomeSheetName, "C11", fmt.Sprintf("Total Income: $%.2f", totalOverallIncomeInDollars)); err != nil {
-		fmt.Println(err)
-	}
-
-	if err := exFile.Save(); err != nil {
-		fmt.Println(err)
-	} else {
-		color.Green("\n\nCalculated values have been successfully stored to .xls file")
-	}
-
-	//Work with IncomeFile
-
-	//2021年12月のルーレット.xlsx
-	//fileMonthNameS := fileMonthName.Text()
-	fileMonthNameS := "2021年12月のルーレット.xlsx"
-	incomeYear, _ := strconv.Atoi(fileMonthNameS[:4])
-	incomeMonth, _ := strconv.Atoi(fileMonthNameS[7:strings.Index(fileMonthNameS, "月")]) //7 cuz 年 is 3 bytes
-
-	exFileIncome, err := excelize.OpenFile(workFolder + "\\" + fileTotalIncomeName)
-
-	if err != nil {
-		fmt.Println(err)
-		fmt.Scanln()
-		return
-	}
-
-	sheetsNumber := 0
+	//Ask (2/2)
 	for {
-		incomeSheetName = exFileIncome.GetSheetName(sheetsNumber)
+		fmt.Print("\n\nDo you want to store values into Total_Income.xlsx? (y/n): ")
+		var userInput string
+		fmt.Scanln(&userInput)
 
-		if incomeSheetName == "" {
+		if userInput == "y" {
 			break
-		}
-
-		sheetsNumber++
-	}
-
-	sheetYearIndex := incomeYear - 2020 //2020 - first sheet (at index 0)
-
-	resp, err := http.Get("https://api.privatbank.ua/p24api/exchange_rates?json&date=" + time.Now().Format("02.01.2006"))
-
-	if err != nil {
-		fmt.Println(err)
-		fmt.Scanln()
-		return
-	}
-
-	defer resp.Body.Close()
-
-	data, _ := ioutil.ReadAll(resp.Body)
-
-	//remove useless from the beginning ""date":"09.12.2021","bank":"PB","baseCurrency":980,"baseCurrencyLit":"UAH","exchangeRate":["
-	//privatData := []byte(string(buff)[strings.Index(string(buff), "[")+1:])
-	data = []byte(string(data)[strings.Index(string(data), "[") : len(data)-1])
-
-	//"baseCurrency":"UAH","currency":"USD" "saleRate":27.4500000,"purchaseRate":27.0500000},
-	type Currency struct {
-		ForeignCurrencyName string  `json:"currency"`
-		PurchaseRate        float64 `json:"purchaseRate"`
-	}
-
-	currencies := []Currency{}
-	if err = json.Unmarshal(data, &currencies); err != nil {
-		fmt.Println(err)
-		fmt.Scanln()
-		return
-	}
-
-	var totalOverallIncomeInHryvnia, totalOverallIncomeInRubles float64
-
-	for _, currency := range currencies {
-		if currency.ForeignCurrencyName == "USD" {
-			totalOverallIncomeInHryvnia = currency.PurchaseRate * totalOverallIncomeInDollars
+		} else if userInput == "n" {
+			fmt.Printf("\n\nPress any key to exit ...")
+			fmt.Scanln()
+			return
+		} else {
+			continue
 		}
 	}
 
-	//2 loops cuz we need to get income in hryvnia first
-	for _, currency := range currencies {
-		if currency.ForeignCurrencyName == "RUB" {
-			totalOverallIncomeInRubles = totalOverallIncomeInHryvnia / currency.PurchaseRate
-		}
-	}
+	writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName.Text(), totalOverallIncomeInDollars, incomeMonth, incomeYear)
 
-	//Set value for the Dollars cell
-	if err = exFileIncome.SetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "B"+strconv.Itoa(incomeMonth+1),
-		fmt.Sprintf("$%.2f", totalOverallIncomeInDollars)); err != nil {
-
-		fmt.Println(err)
-		fmt.Scanln()
-		return
-
-	}
-
-	//Set value for the Rubles cell
-	if err = exFileIncome.SetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "C"+strconv.Itoa(incomeMonth+1),
-		fmt.Sprintf("₽%.2f", totalOverallIncomeInRubles)); err != nil {
-
-		fmt.Println(err)
-		fmt.Scanln()
-		return
-
-	}
-
-	//Set value for the Hryvnia cell
-	if err = exFileIncome.SetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "D"+strconv.Itoa(incomeMonth+1),
-		fmt.Sprintf("₴%.2f", totalOverallIncomeInHryvnia)); err != nil {
-
-		fmt.Println(err)
-		fmt.Scanln()
-		return
-
-	}
-
-	err = exFileIncome.Save()
-
-	if err != nil {
-		fmt.Println(err)
-		fmt.Scanln()
-		return
-	}
-
-	//fmt.Printf("\n\nPress any key to exit ...")
-	//fmt.Scanln()
+	fmt.Printf("\n\nPress any key to exit ...")
+	fmt.Scanln()
 }

@@ -48,11 +48,11 @@ func main() {
 	}
 
 	accounts := []Accounts{
-		{login: "....."},
-		{login: "...."},
-		{login: "d......9"},
-		{login: "de....."},
-		{login: "de....."},
+		{login: "l..._"},
+		{login: "r..."},
+		{login: "de..."},
+		{login: "d.."},
+		{login: "."},
 	}
 
 	var totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome float64
@@ -66,15 +66,15 @@ func main() {
 	//Print income of each account and count the total income in loop to print it later
 	for i := range accounts {
 		switch accounts[i].login { //index is needed cuz range-loop copies accounts[i] to account, but not a pointer
-		case "/......_":
+		case "..":
 			color.Red(accounts[i].CalculateS())
-		case "......":
+		case "r.....":
 			color.Magenta(accounts[i].CalculateS())
-		case "de......":
+		case "d........":
 			color.Yellow(accounts[i].CalculateS())
-		case "d......1":
+		case "d....":
 			color.Cyan(accounts[i].CalculateS())
-		case "d......":
+		case "d.....":
 			color.White(accounts[i].CalculateS())
 		}
 
@@ -367,6 +367,7 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 
 	//Write data to account cells: wtfskins, csgolive, pvpro
 
+	//store current cell values in beforeS slice, and new values in afterS
 	var beforeS, afterS []string
 
 	for i := 'B'; i <= 'D'; i++ {
@@ -426,16 +427,35 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 		}
 	}
 
-	//ПЕРЕРАБОТАТЬ!!!!
+	//if current and new values are different
 	if len(beforeS) > 0 {
 
-		//Ask user if he wants to overwrite data
-
 		fmt.Print("\n\n")
-		//массив превратить в одну строку через Split, а сверху перечисление названий аккаунтов
+
+		//account1: [0], [1], [3] | account2: [4], [5], [6] | ....
+		beforeSlice := make([][]string, len(*accounts))
+		afterSlice := make([][]string, len(*accounts))
+		//index for loop in accounts names
+		var j int
+
 		for i := 0; i < len(beforeS); i++ {
-			color.Red(beforeS[i])
-			color.Cyan(afterS[i])
+
+			//wtfskins, csgolive and pvpro values changes every N elements
+			if i%len(*accounts) == 0 {
+				j = 0
+			}
+
+			beforeSlice[j] = append(beforeSlice[j], beforeS[i])
+			afterSlice[j] = append(afterSlice[j], afterS[i])
+
+			j++
+		}
+
+		//print values in just one line
+		for i := 0; i < len(*accounts); i++ {
+			color.Yellow((*accounts)[i].login + ": ")
+			color.Red("\t" + strings.Join(beforeSlice[i], "\t"))
+			color.Cyan("\t" + strings.Join(afterSlice[i], "\t"))
 		}
 	}
 
@@ -447,6 +467,9 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 
 	//Check if current and storead values are the same, if they are different - overwrite it here (it will apply)
 	//	only if we call Save() and store these values in 2 different slices to show the difference later
+
+	color.Yellow("\n\nOVERALL: ")
+
 	if val, err := exFile.GetCellValue(incomeSheetName, "B8"); err != nil {
 		fmt.Println(err)
 	} else {
@@ -455,8 +478,8 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 			if err := exFile.SetCellValue(incomeSheetName, "B8", totalWtfskinsIncomeS); err != nil {
 				fmt.Println(err)
 			} else {
-				beforeS = append(beforeS, "OVERALL wtfskins: "+val)
-				afterS = append(afterS, "OVERALL wtfskins: "+totalWtfskinsIncomeS)
+				beforeS = append(beforeS, "\twtfskins: "+val)
+				afterS = append(afterS, "\twtfskins: "+totalWtfskinsIncomeS)
 			}
 		}
 	}
@@ -469,8 +492,8 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 			if err := exFile.SetCellValue(incomeSheetName, "B8", totalCsgolivesIncomeS); err != nil {
 				fmt.Println(err)
 			} else {
-				beforeS = append(beforeS, "OVERALL csgolive: "+val)
-				afterS = append(afterS, "OVERALL csgolive: "+totalCsgolivesIncomeS)
+				beforeS = append(beforeS, "\tcsgolive: "+val)
+				afterS = append(afterS, "\tcsgolive: "+totalCsgolivesIncomeS)
 			}
 		}
 	}
@@ -483,8 +506,8 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 			if err := exFile.SetCellValue(incomeSheetName, "B8", totalPvproIncomeS); err != nil {
 				fmt.Println(err)
 			} else {
-				beforeS = append(beforeS, "OVERALL pvpro: "+val)
-				afterS = append(afterS, "OVERALL pvpro: "+totalPvproIncomeS)
+				beforeS = append(beforeS, "\tpvpro: "+val)
+				afterS = append(afterS, "\tpvpro: "+totalPvproIncomeS)
 			}
 		}
 	}
@@ -497,17 +520,13 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 			if err := exFile.SetCellValue(incomeSheetName, "B8", totalOverallIncomeInDollarsS); err != nil {
 				fmt.Println(err)
 			} else {
-				beforeS = append(beforeS, val)
-				afterS = append(afterS, totalOverallIncomeInDollarsS)
+				beforeS = append(beforeS, "\t"+val)
+				afterS = append(afterS, "\t"+totalOverallIncomeInDollarsS)
 			}
 		}
 	}
 
 	if len(beforeS) > 0 {
-
-		//Ask user if he wants to overwrite data
-
-		fmt.Print("\n\n")
 
 		for i := 0; i < len(beforeS); i++ {
 			color.Red(beforeS[i])
@@ -516,6 +535,8 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 			fmt.Println()
 		}
 	}
+
+	//Ask user if user wants to overwrite data
 
 	if err := exFile.Save(); err != nil {
 		fmt.Println(err)
@@ -604,14 +625,40 @@ func writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName str
 		}
 	}
 
+	/*
+		if val, err := exFile.GetCellValue(incomeSheetName, "C8"); err != nil {
+			fmt.Println(err)
+		} else {
+			totalCsgolivesIncomeS := fmt.Sprintf("+$%.2f", totalCsgolivesIncome)
+			if val != totalCsgolivesIncomeS {
+				if err := exFile.SetCellValue(incomeSheetName, "B8", totalCsgolivesIncomeS); err != nil {
+					fmt.Println(err)
+				} else {
+					beforeS = append(beforeS, "\tcsgolive: "+val)
+					afterS = append(afterS, "\tcsgolive: "+totalCsgolivesIncomeS)
+				}
+			}
+		}
+	*/
+
+	var beforeS, afterS []string
+
 	//Set value for the Dollars cell
-	if err = exFileIncome.SetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "B"+strconv.Itoa(incomeMonth+1),
-		fmt.Sprintf("$%.2f", totalOverallIncomeInDollars)); err != nil {
 
+	if val, err := exFileIncome.GetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "B"+strconv.Itoa(incomeMonth+1)); err != nil {
 		fmt.Println(err)
-		fmt.Scanln()
-		return
-
+	} else {
+		totalOverallIncomeInDollarsS := fmt.Sprintf("$%.2f", totalOverallIncomeInDollars)
+		if val != totalOverallIncomeInDollarsS {
+			if err = exFileIncome.SetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "B"+strconv.Itoa(incomeMonth+1),
+				totalOverallIncomeInDollarsS); err != nil {
+				fmt.Println(err)
+				return
+			} else {
+				beforeS = append(beforeS, "Income in Dollars: "+val)
+				afterS = append(afterS, "Income in Dollars: "+totalOverallIncomeInDollarsS)
+			}
+		}
 	}
 
 	//Set value for the Rubles cell
@@ -619,7 +666,6 @@ func writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName str
 		fmt.Sprintf("₽%.2f", totalOverallIncomeInRubles)); err != nil {
 
 		fmt.Println(err)
-		fmt.Scanln()
 		return
 
 	}
@@ -629,7 +675,6 @@ func writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName str
 		fmt.Sprintf("₴%.2f", totalOverallIncomeInHryvnia)); err != nil {
 
 		fmt.Println(err)
-		fmt.Scanln()
 		return
 
 	}

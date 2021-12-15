@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-//подсчет доходов за год в файле доходов
 //файлы не только в меге но и рядом с файлом - для работы на линуксе и андроиде
 
 func main() {
@@ -36,22 +36,35 @@ func main() {
 		return
 	}
 
+
 	exFile, err := excelize.OpenFile(workFolder + "\\" + fileMonthName.Text())*/
+
 	fileMonthName := "2021年12月のルーレット.xlsx"
 	exFile, err := excelize.OpenFile(workFolder + "\\" + "2021年12月のルーレット.xlsx") // --> for debug
 
 	if err != nil {
-		fmt.Println(err)
-		fmt.Scanln()
-		return
+		var err2 error
+
+		if runtime.GOOS == "windows" {
+			exFile, err2 = excelize.OpenFile(currFolder + "\\" + "2021年12月のルーレット.xlsx")
+		} else {
+			exFile, err2 = excelize.OpenFile(currFolder + "/" + "2021年12月のルーレット.xlsx")
+		}
+
+		if err2 != nil {
+			fmt.Printf("%s\n%s\n\n", err, err2)
+			fmt.Printf("\n\nPress any key to exit ...")
+			fmt.Scanln()
+			return
+		}
 	}
 
 	accounts := []Accounts{
-		{login: "..."},
-		{login: "r...."},
-		{login: "d....."},
-		{login: "d...."},
-		{login: "d....."},
+		{login: "."},
+		{login: "ra."},
+		{login: "d."},
+		{login: "d.."},
+		{login: "d.."},
 	}
 
 	var totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome float64
@@ -67,13 +80,13 @@ func main() {
 		switch accounts[i].login { //index is needed cuz range-loop copies accounts[i] to account, but not a pointer
 		case "...":
 			color.Red(accounts[i].CalculateS())
-		case "r.....":
+		case "..":
 			color.Magenta(accounts[i].CalculateS())
-		case "d.....":
+		case "de..":
 			color.Yellow(accounts[i].CalculateS())
-		case "d...":
+		case "d.1":
 			color.Cyan(accounts[i].CalculateS())
-		case "d....":
+		case ".":
 			color.White(accounts[i].CalculateS())
 		}
 
@@ -468,8 +481,6 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 	//Check if current and storead values are the same, if they are different - overwrite it here (it will apply)
 	//	only if we call Save() and store these values in 2 different slices to show the difference later
 
-	color.Yellow("\n\nOVERALL: ")
-
 	if val, err := exFile.GetCellValue(incomeSheetName, "B8"); err != nil {
 		fmt.Println(err)
 	} else {
@@ -489,7 +500,7 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 	} else {
 		totalCsgolivesIncomeS := fmt.Sprintf("+$%.2f", totalCsgolivesIncome)
 		if val != totalCsgolivesIncomeS {
-			if err := exFile.SetCellValue(incomeSheetName, "B8", totalCsgolivesIncomeS); err != nil {
+			if err := exFile.SetCellValue(incomeSheetName, "C8", totalCsgolivesIncomeS); err != nil {
 				fmt.Println(err)
 			} else {
 				beforeS = append(beforeS, "\tcsgolive: "+val)
@@ -503,7 +514,7 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 	} else {
 		totalPvproIncomeS := fmt.Sprintf("+%d coins (+$%.2f)", totalPvproCoinsIncome, totalPvproDollarsIncome)
 		if val != totalPvproIncomeS {
-			if err := exFile.SetCellValue(incomeSheetName, "B8", totalPvproIncomeS); err != nil {
+			if err := exFile.SetCellValue(incomeSheetName, "D8", totalPvproIncomeS); err != nil {
 				fmt.Println(err)
 			} else {
 				beforeS = append(beforeS, "\tpvpro: "+val)
@@ -517,7 +528,7 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 	} else {
 		totalOverallIncomeInDollarsS := fmt.Sprintf("Total Income: $%.2f", totalOverallIncomeInDollars)
 		if val != totalOverallIncomeInDollarsS {
-			if err := exFile.SetCellValue(incomeSheetName, "B8", totalOverallIncomeInDollarsS); err != nil {
+			if err := exFile.SetCellValue(incomeSheetName, "C11", totalOverallIncomeInDollarsS); err != nil {
 				fmt.Println(err)
 			} else {
 				beforeS = append(beforeS, "\t"+val)
@@ -527,30 +538,65 @@ func writeToFileMonthIncome(exFile *excelize.File, accounts *[]Accounts, totalWt
 	}
 
 	if len(beforeS) > 0 {
-
+		color.Yellow("\n\nOVERALL: ")
 		color.Red(strings.Join(beforeS, "  "))
 		color.Cyan(strings.Join(afterS, "  "))
+
+		//Ask user if user wants to overwrite data
+
+		for {
+			fmt.Printf("\n\nDo you want to overwrite values in %s? (y/n): ", fileMonthNameAlias)
+			var userInput string
+			fmt.Scanln(&userInput)
+
+			if userInput == "y" {
+				break
+			} else if userInput == "n" {
+				fmt.Println(strings.Repeat("_", 110))
+				return
+			} else {
+				continue
+			}
+		}
+
+		if err := exFile.Save(); err != nil {
+			color.Red("\n%s", err)
+			color.Red("\n\nCalculated values have not been stored into %s", fileMonthNameAlias)
+		} else {
+			color.Green("\n\nCalculated values have been successfully stored into %s", fileMonthNameAlias)
+		}
 	}
 
-	//Ask user if user wants to overwrite data
-
-	if err := exFile.Save(); err != nil {
-		fmt.Println(err)
-		color.Red("\n\nCalculated values have not been stored into %s", fileMonthNameAlias)
-	} else {
-		color.Green("\n\nCalculated values have been successfully stored into %s", fileMonthNameAlias)
-	}
+	fmt.Println(strings.Repeat("_", 110))
 }
 
 func writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName string, totalOverallIncomeInDollars float64,
 	incomeMonth, incomeYear int, fileMonthNameAlias string) {
 
-	exFileIncome, err := excelize.OpenFile(workFolder + "\\" + fileTotalIncomeName)
+	fmt.Println()
 
+	var (
+		exFileIncome *excelize.File
+		err          error
+	)
+
+	exFileIncome, err = excelize.OpenFile(workFolder + "\\" + fileTotalIncomeName)
 	if err != nil {
-		fmt.Println(err)
-		fmt.Scanln()
-		return
+		var err2 error
+
+		currFolder, _ := os.Getwd()
+		if runtime.GOOS == "windows" {
+			exFileIncome, err2 = excelize.OpenFile(currFolder + "\\" + fileTotalIncomeName)
+		} else {
+			exFileIncome, err2 = excelize.OpenFile(currFolder + "/" + fileTotalIncomeName)
+		}
+
+		if err2 != nil {
+			fmt.Printf("%s\n%s\n\n", err, err2)
+			fmt.Printf("\n\nPress any key to exit ...")
+			fmt.Scanln()
+			return
+		}
 	}
 
 	sheetsNumber := 0
@@ -685,50 +731,123 @@ func writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName str
 	for i := 'B'; i <= 'D'; i++ {
 		for j := 2; j <= 13; j++ {
 			if i == 'B' {
-				if val, err := exFileIncome.GetCellValue(exFileIncome.GetSheetName(0), "B"+strconv.Itoa(j)); err != nil {
+				if val, err := exFileIncome.GetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "B"+strconv.Itoa(j)); err != nil {
 					fmt.Println(err)
 				} else {
-					if len(val) > 0 {
+					if len(val) > 0 { // in case of an empty string
 						if num, err := strconv.ParseFloat(val[1:], 64); err == nil { //$ = 1 byte ($11.80)
 							yearIncomeInDollars += num
 						}
 					}
 				}
 			} else if i == 'C' {
-				if val, err := exFileIncome.GetCellValue(exFileIncome.GetSheetName(0), "C"+strconv.Itoa(j)); err != nil {
+				if val, err := exFileIncome.GetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "C"+strconv.Itoa(j)); err != nil {
 					fmt.Println(err)
 				} else {
-					if num, err := strconv.ParseFloat(val[3:], 64); err == nil { //₽ = 3 bytes (₽881.92)
-						yearIncomeInRubles += num
-					} else {
-						fmt.Println(err)
+					if len(val) > 0 {
+						if num, err := strconv.ParseFloat(val[3:], 64); err == nil { //₽ = 3 bytes (₽881.92)
+							yearIncomeInRubles += num
+						}
 					}
 				}
 			} else if i == 'D' {
-				if val, err := exFileIncome.GetCellValue(exFileIncome.GetSheetName(0), "D"+strconv.Itoa(j)); err != nil {
+				if val, err := exFileIncome.GetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "D"+strconv.Itoa(j)); err != nil {
 					fmt.Println(err)
 				} else {
-					if num, err := strconv.ParseFloat(val[3:], 64); err == nil { //₴ = 3 bytes (₴318.90)
-						yearIncomeInHryvnias += num
+					if len(val) > 0 {
+						if num, err := strconv.ParseFloat(val[3:], 64); err == nil { //₴ = 3 bytes (₴318.90)
+							yearIncomeInHryvnias += num
+						}
 					}
 				}
 			}
 		}
 	}
 
-	fmt.Println(yearIncomeInDollars, yearIncomeInRubles, yearIncomeInHryvnias)
-
 	if len(beforeS) > 0 {
 		color.Red(strings.Join(beforeS, "\t"))
 		color.Cyan(strings.Join(afterS, "\t"))
 	}
 
-	//Ask user if he wants
+	beforeS = nil
+	afterS = nil
+
+	//Set value for the YearDollars cell
+	if val, err := exFileIncome.GetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "B14"); err != nil {
+		fmt.Println(err)
+	} else {
+		yearIncomeInDollarsS := fmt.Sprintf("$%.2f", yearIncomeInDollars)
+		if val != yearIncomeInDollarsS {
+			if err = exFileIncome.SetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "B14", yearIncomeInDollarsS); err != nil {
+				fmt.Println(err)
+				return
+			} else {
+				beforeS = append(beforeS, val)
+				afterS = append(afterS, yearIncomeInDollarsS)
+			}
+		}
+	}
+
+	//Set value for the YearRubles cell
+	if val, err := exFileIncome.GetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "C14"); err != nil {
+		fmt.Println(err)
+	} else {
+		yearIncomeInRublesS := fmt.Sprintf("₽%.2f", yearIncomeInRubles)
+		if val != yearIncomeInRublesS {
+			if err = exFileIncome.SetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "C14", yearIncomeInRublesS); err != nil {
+				fmt.Println(err)
+				return
+			} else {
+				beforeS = append(beforeS, val)
+				afterS = append(afterS, yearIncomeInRublesS)
+			}
+		}
+	}
+
+	//Set value for the YearHryvnia cell
+	if val, err := exFileIncome.GetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "D14"); err != nil {
+		fmt.Println(err)
+	} else {
+		yearIncomeInHryvniasS := fmt.Sprintf("₴%.2f", yearIncomeInHryvnias)
+		if val != yearIncomeInHryvniasS {
+			if err = exFileIncome.SetCellValue(exFileIncome.GetSheetName(sheetYearIndex), "D14", yearIncomeInHryvnias); err != nil {
+				fmt.Println(err)
+				return
+			} else {
+				beforeS = append(beforeS, val)
+				afterS = append(afterS, yearIncomeInHryvniasS)
+			}
+		}
+	}
+
+	fmt.Print("\n\n")
+	color.Yellow("Annual income ($, ₽, ₴):")
+	if len(beforeS) > 0 {
+		color.Red("\t" + strings.Join(beforeS, "  \t"))
+		color.Cyan("\t" + strings.Join(afterS, "  \t"))
+	}
+
+	for {
+		fmt.Printf("\n\nDo you want to overwrite values in %s? (y/n): ", fileMonthNameAlias)
+		var userInput string
+		fmt.Scanln(&userInput)
+
+		if userInput == "y" {
+			break
+		} else if userInput == "n" {
+			fmt.Println(strings.Repeat("_", 110))
+			return
+		} else {
+			continue
+		}
+	}
 
 	if err := exFileIncome.Save(); err != nil {
-		fmt.Println(err)
+		color.Red("\n%s", err)
 		color.Red("\n\nCalculated values have not been stored into %s", fileMonthNameAlias)
 	} else {
 		color.Green("\n\nCalculated values have been successfully stored into %s", fileMonthNameAlias)
 	}
+
+	fmt.Println(strings.Repeat("_", 110))
 }

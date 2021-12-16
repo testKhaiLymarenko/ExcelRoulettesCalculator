@@ -1,3 +1,4 @@
 *.exe
+*.xlsx
 .vscode/launch.json
 .vscode/

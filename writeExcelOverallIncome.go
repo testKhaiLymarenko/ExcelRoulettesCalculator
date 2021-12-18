@@ -74,6 +74,7 @@ func writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName str
 	calculateAnnualIncome(exFileIncome, sheetYearIndex, &yearIncomeInDollars, &yearIncomeInRubles, &yearIncomeInHryvnias)
 
 	if len(beforeS) > 0 {
+		color.Yellow("Income ($, ₽, ₴):  $1 = ₴%.2f = ₽%.2f [НБУ, %s]", hryvniaRate, hryvniaRate/rubleRate, date)
 		color.Red(strings.Join(beforeS, "\t"))
 		color.Cyan(strings.Join(afterS, "\t"))
 	}
@@ -90,7 +91,6 @@ func writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName str
 	}
 
 	if len(beforeS) > 0 {
-		color.Yellow("Income ($, ₽, ₴):  $1 = ₴%.2f = ₽%.2f [НБУ, %s]", hryvniaRate, hryvniaRate/rubleRate, date)
 		fmt.Print("\n\n")
 		color.Yellow("Annual income ($, ₽, ₴):")
 

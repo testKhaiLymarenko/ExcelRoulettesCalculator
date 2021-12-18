@@ -81,6 +81,13 @@ func main() {
 		accounts[i].login = accountNames[i]
 	}
 
+	accounts := make([]Accounts, len(accountNames))
+
+	for i := 0; i < len(accountNames); i++ {
+		accounts[i].login = accountNames[i]
+	}
+
+
 	var totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome float64
 	var totalPvproCoinsIncome int
 	var totalOverallIncomeInDollars float64

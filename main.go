@@ -53,12 +53,27 @@ func main() {
 		}
 	}
 
-	accounts := []Accounts{
-		{login: "...."},
-		{login: "r...."},
-		{login: "de...."},
-		{login: "d...."},
-		{login: "d..."},
+	//Get account names from excel file but not hardcoded
+	var accountNames []string
+
+	sheetsNumber := 0
+	for {
+		//first sheet is the month
+		if exFile.GetSheetName(sheetsNumber) != "" {
+			if sheetsNumber > 0 {
+				accountNames = append(accountNames, exFile.GetSheetName(sheetsNumber))
+			}
+		} else {
+			break
+		}
+
+		sheetsNumber++
+	}
+
+	accounts := make([]Accounts, len(accountNames))
+
+	for i := 0; i < len(accountNames); i++ {
+		accounts[i].login = accountNames[i]
 	}
 
 	var totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome float64
@@ -70,18 +85,21 @@ func main() {
 	getLastCellValues(exFile, &accounts)
 
 	//Print income of each account and count the total income in loop to print it later
+	fmt.Println()
 	for i := range accounts {
-		switch accounts[i].login { //index is needed cuz range-loop copies accounts[i] to account, but not a pointer
-		case "....":
+		switch i { //index is needed cuz range-loop copies accounts[i] to account, but not a pointer
+		case 0:
 			color.Red(accounts[i].CalculateS())
-		case "r....":
+		case 1:
 			color.Magenta(accounts[i].CalculateS())
-		case "d....":
+		case 2:
 			color.Yellow(accounts[i].CalculateS())
-		case "d......":
+		case 3:
 			color.Cyan(accounts[i].CalculateS())
-		case "d...2":
+		case 4:
 			color.White(accounts[i].CalculateS())
+		default:
+			color.Yellow(accounts[i].CalculateS())
 		}
 
 		totalWtfskinsIncome += accounts[i].wtfskinsIncome

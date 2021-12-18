@@ -73,6 +73,11 @@ func main() {
 	accounts := make([]Accounts, len(accountNames))
 
 	for i := 0; i < len(accountNames); i++ {
+		accounts[i].login = accountNames[i]	}
+
+	accounts := make([]Accounts, len(accountNames))
+
+	for i := 0; i < len(accountNames); i++ {
 		accounts[i].login = accountNames[i]
 	}
 

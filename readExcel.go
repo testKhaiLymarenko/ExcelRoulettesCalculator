@@ -227,3 +227,37 @@ func checkAndGetFirstCells(exFile *excelize.File, accounts *[]Accounts) {
 		os.Exit(1)
 	}
 }
+
+//Check if file or directory exists
+func fileExists(path string) bool {
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+
+	return false
+}
+
+//Get path to the directory that exactly doesn't exist in the whole path
+func nonExistedFirstDir(path string) (string, error) {
+	//"D:\\Program Files\\MEGAsync\\MEGAsync\\Internet Deals\\Steam\\ルーレット"
+
+	paths := []string{path} //1st element is original path and in the loop we reduce whole path by 1 directory
+
+	for {
+		if !strings.Contains(path, "\\") {
+			break
+		}
+
+		path = path[:strings.LastIndex(path, "\\")]
+		paths = append(paths, path)
+	}
+
+	//D:\\, D:\\Program Files, ... -> the last element is the 1st to check
+	for i := len(paths) - 1; i >= 0; i-- {
+		if !fileExists(paths[i]) {
+			return paths[i], nil
+		}
+	}
+
+	return "", fmt.Errorf("error in nonExistedFirstDir(): all directories along %s exist", path)
+}

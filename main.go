@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"runtime"
@@ -13,16 +12,45 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-func main() {
+//добавить название для папок в вывод WorkingDirectory: path: ...
+//файлы-параметры (много, если какой-то ошибочный - вывод об ошибки и продолжить работу)
+//os.Exit v check..()
 
-	workFolder := "D:\\Program Files\\MEGAsync\\MEGAsync\\Internet Deals\\Steam\\ルーレット"
+func main() {
+	defer func() {
+		fmt.Printf("\nPress any key to exit ...")
+		fmt.Scanln()
+	}()
+
+	workFolder := "D:\\Program Files\\MEGA\\Internet Deals\\Steam\\ルーレット"
+	var workFolderExists bool
 	currFolder, _ := os.Getwd()
 	fileTotalIncomeName := "_ルーレットの総収入.xlsx"
 
-	fmt.Println(currFolder + ": ")
-	fmt.Print(workFolder + ": ")
+	if !fileExists(workFolder) {
+		nonExistedFile, err := nonExistedFirstDir(workFolder)
+		if err != nil {
+			color.Red("%v", err)
+			return
+		}
 
-	fileMonthName := bufio.NewScanner(os.Stdin) //2021年12月のルーレット.xlsx
+		if nonExistedFile != workFolder {
+			color.Red(workFolder+"\\ not found because %s doesn't exist", nonExistedFile)
+		} else {
+			color.Red(workFolder + "\\ not found")
+		}
+
+		color.Yellow(currFolder + ": ")
+
+		workFolderExists = false
+	} else {
+		color.Yellow(currFolder + "\\: ")
+		color.Yellow(workFolder + "\\: ")
+		workFolderExists = true
+	}
+
+	fmt.Println()
+	/*fileMonthName := bufio.NewScanner(os.Stdin) //2021年12月のルーレット.xlsx
 	fileMonthName.Scan()
 
 	if fileMonthName.Err() != nil {
@@ -30,25 +58,29 @@ func main() {
 		fmt.Scanln()
 		return
 	}
+	*/
 
-	exFile, err := excelize.OpenFile(workFolder + "\\" + fileMonthName.Text())
+	fileMonthName := "2022年1月のルーレット.xlsx" // --> for debug
+	var exFile *excelize.File
+	var err error
 
-	//fileMonthName := "2021年12月のルーレット.xlsx" // --> for debug
-	//exFile, err := excelize.OpenFile(workFolder + "\\" + "2021年12月のルーレット.xlsx") // --> for debug
-
-	if err != nil {
-		var err2 error
-
+	//добавить стирание консоли если файл найден в основной папке
+	if workFolderExists && fileExists(workFolder+"\\"+fileMonthName) {
+		//exFile, err := excelize.OpenFile(workFolder + "\\" + fileMonthName.Text())
+		exFile, err = excelize.OpenFile(workFolder + "\\" + fileMonthName) // --> for debug
+		if err != nil {
+			color.Red("%v", err)
+			return
+		}
+	} else {
 		if runtime.GOOS == "windows" {
-			exFile, err2 = excelize.OpenFile(currFolder + "\\" + fileMonthName.Text()) //"2021年12月のルーレット.xlsx")
+			exFile, err = excelize.OpenFile(currFolder + "\\" + fileMonthName) //"2021年12月のルーレット.xlsx")
 		} else {
-			exFile, err2 = excelize.OpenFile(currFolder + "/" + fileMonthName.Text()) // "2021年12月のルーレット.xlsx")
+			exFile, err = excelize.OpenFile(currFolder + "/" + fileMonthName) // "2021年12月のルーレット.xlsx")
 		}
 
-		if err2 != nil {
-			fmt.Printf("%s\n%s\n\n", err, err2)
-			fmt.Printf("\n\nPress any key to exit ...")
-			fmt.Scanln()
+		if err != nil {
+			color.Red("%v\n\n", err)
 			return
 		}
 	}
@@ -73,20 +105,20 @@ func main() {
 	accounts := make([]Accounts, len(accountNames))
 
 	for i := 0; i < len(accountNames); i++ {
-		accounts[i].login = accountNames[i]	}
+		accounts[i].login = accountNames[i]
+	}
 
-	accounts := make([]Accounts, len(accountNames))
+	accounts = make([]Accounts, len(accountNames))
 
 	for i := 0; i < len(accountNames); i++ {
 		accounts[i].login = accountNames[i]
 	}
 
-	accounts := make([]Accounts, len(accountNames))
+	accounts = make([]Accounts, len(accountNames))
 
 	for i := 0; i < len(accountNames); i++ {
 		accounts[i].login = accountNames[i]
 	}
-
 
 	var totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome float64
 	var totalPvproCoinsIncome int
@@ -130,18 +162,15 @@ func main() {
 
 	//All of these needed just to print Month_year.xlsx (December_2021.xlsx)
 	//2021年12月のルーレット.xlsx
-	incomeMonth, _ := strconv.Atoi(fileMonthName.Text()[7:strings.Index(fileMonthName.Text(), "月")]) //7 cuz '年' consists of 3 bytes//7 cuz '年' consists of 3 bytes
-	incomeYear, _ := strconv.Atoi(fileMonthName.Text()[:4])
+	incomeMonth, _ := strconv.Atoi(fileMonthName[7:strings.Index(fileMonthName, "月")]) //7 cuz '年' consists of 3 bytes//7 cuz '年' consists of 3 bytes
+	incomeYear, _ := strconv.Atoi(fileMonthName[:4])
 	monthT := time.Month(incomeMonth)
 	fileMonthNameAlias := monthT.String() + "_" + strconv.Itoa(incomeYear) + ".xlsx"
 
 	//1st file
 	writeToFileMonthIncome(exFile, &accounts, totalWtfskinsIncome, totalCsgolivesIncome, totalPvproDollarsIncome,
-		totalOverallIncomeInDollars, totalPvproCoinsIncome, fileMonthName.Text(), fileMonthNameAlias)
+		totalOverallIncomeInDollars, totalPvproCoinsIncome, fileMonthName, fileMonthNameAlias)
 
 	//2nd file
-	writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName.Text(), totalOverallIncomeInDollars, incomeMonth, incomeYear, fileMonthNameAlias)
-
-	fmt.Printf("\n\nPress any key to exit ...")
-	fmt.Scanln()
+	writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName, totalOverallIncomeInDollars, incomeMonth, incomeYear, fileMonthNameAlias)
 }

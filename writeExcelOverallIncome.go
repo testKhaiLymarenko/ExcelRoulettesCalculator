@@ -136,7 +136,7 @@ func getExcelFileIncome(workFolder, fileTotalIncomeName string) (*excelize.File,
 		}
 
 		if err2 != nil {
-			return nil, fmt.Errorf("%s\n%s\n", err, err2)
+			return nil, fmt.Errorf("%s\n%s", err, err2)
 		}
 	}
 

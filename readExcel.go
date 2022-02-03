@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -141,7 +141,7 @@ func getLastCellValues(exFile *excelize.File, accounts *[]Accounts) {
 }
 
 //check if first cells contain data from the previous month and fill the accounts' struct if yes
-func checkAndGetFirstCells(exFile *excelize.File, accounts *[]Accounts) {
+func checkAndGetFirstCells(exFile *excelize.File, accounts *[]Accounts) error {
 
 	var log string //collect accounts which don't have value for wtfskins, csgolives, pvpro
 	empty := false //need to check if there's at least one account that doesn't have a value for any of 3 roulettes
@@ -223,18 +223,10 @@ func checkAndGetFirstCells(exFile *excelize.File, accounts *[]Accounts) {
 			}
 		}
 
-		fmt.Scanln()
-		os.Exit(1)
-	}
-}
-
-//Check if file or directory exists
-func fileExists(path string) bool {
-	if _, err := os.Stat(path); err == nil {
-		return true
+		return fmt.Errorf("not empty")
 	}
 
-	return false
+	return nil
 }
 
 //Get path to the directory that exactly doesn't exist in the whole path
@@ -260,4 +252,37 @@ func nonExistedFirstDir(path string) (string, error) {
 	}
 
 	return "", fmt.Errorf("error in nonExistedFirstDir(): all directories along %s exist", path)
+}
+
+//Finds pointer to the *.xls file if exists and returns error if not
+func getExcelFileHandle(workDirExists bool, workDir, currDir, fileMonthName string) (*excelize.File, error) {
+
+	var exFile *excelize.File
+	var err error
+	workDirFile := workDir + "\\" + fileMonthName
+	currDirFile := currDir + "\\" + fileMonthName
+
+	if workDirExists && fileExists(workDirFile) {
+		//exFile, err := excelize.OpenFile(workDir + "\\" + fileMonthName.Text())
+		exFile, err = excelize.OpenFile(workDirFile) // --> for debug
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if runtime.GOOS == "windows" {
+			if !fileExists(currDirFile) {
+				return nil, fmt.Errorf("file %s is missing", currDirFile)
+			}
+
+			exFile, err = excelize.OpenFile(currDir + "\\" + fileMonthName) //"2021年12月のルーレット.xlsx")
+		} else {
+			exFile, err = excelize.OpenFile(currDir + "/" + fileMonthName) // "2021年12月のルーレット.xlsx")
+		}
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return exFile, nil
 }

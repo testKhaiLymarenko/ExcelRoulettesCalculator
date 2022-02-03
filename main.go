@@ -3,53 +3,42 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/xuri/excelize/v2"
 )
 
-//добавить название для папок в вывод WorkingDirectory: path: ...
+//add Linux support
+//add Linux WSL support
 //файлы-параметры (много, если какой-то ошибочный - вывод об ошибки и продолжить работу)
-//os.Exit v check..()
+//fix error color.Red vo vsex filax
 
 func main() {
+	if runtime.GOOS == "windows" { //change console window title
+		cmd := exec.Command("cmd", "/C", "title", "ExcelRoulettesCalculator")
+		if err := cmd.Run(); err != nil {
+			color.Red("%v", err)
+		}
+	}
+
 	defer func() {
 		fmt.Printf("\nPress any key to exit ...")
 		fmt.Scanln()
 	}()
 
-	workFolder := "D:\\Program Files\\MEGA\\Internet Deals\\Steam\\ルーレット"
-	var workFolderExists bool
-	currFolder, _ := os.Getwd()
+	////"D:\\Program Files\\MEGAsync\\MEGAsync\\Internet Deals\\Steam\\ルーレット"
+	workDir := "D:\\Program Files\\MEGAsync\\MEGAsync\\Internet Deals\\Steam\\ルーレット" //"D:\\Program Files\\MEGA\\Internet Deals\\Steam\\ルーレット"
+	var workDirExists bool
+	currDir, _ := os.Getwd()
+	currDir = strings.ToUpper(currDir[:1]) + currDir[1:] // (f:\\ -> F:\\)
 	fileTotalIncomeName := "_ルーレットの総収入.xlsx"
 
-	if !fileExists(workFolder) {
-		nonExistedFile, err := nonExistedFirstDir(workFolder)
-		if err != nil {
-			color.Red("%v", err)
-			return
-		}
+	printStartMessage(workDir, currDir, &workDirExists)
 
-		if nonExistedFile != workFolder {
-			color.Red(workFolder+"\\ not found because %s doesn't exist", nonExistedFile)
-		} else {
-			color.Red(workFolder + "\\ not found")
-		}
-
-		color.Yellow(currFolder + ": ")
-
-		workFolderExists = false
-	} else {
-		color.Yellow(currFolder + "\\: ")
-		color.Yellow(workFolder + "\\: ")
-		workFolderExists = true
-	}
-
-	fmt.Println()
 	/*fileMonthName := bufio.NewScanner(os.Stdin) //2021年12月のルーレット.xlsx
 	fileMonthName.Scan()
 
@@ -61,28 +50,10 @@ func main() {
 	*/
 
 	fileMonthName := "2022年1月のルーレット.xlsx" // --> for debug
-	var exFile *excelize.File
-	var err error
-
-	//добавить стирание консоли если файл найден в основной папке
-	if workFolderExists && fileExists(workFolder+"\\"+fileMonthName) {
-		//exFile, err := excelize.OpenFile(workFolder + "\\" + fileMonthName.Text())
-		exFile, err = excelize.OpenFile(workFolder + "\\" + fileMonthName) // --> for debug
-		if err != nil {
-			color.Red("%v", err)
-			return
-		}
-	} else {
-		if runtime.GOOS == "windows" {
-			exFile, err = excelize.OpenFile(currFolder + "\\" + fileMonthName) //"2021年12月のルーレット.xlsx")
-		} else {
-			exFile, err = excelize.OpenFile(currFolder + "/" + fileMonthName) // "2021年12月のルーレット.xlsx")
-		}
-
-		if err != nil {
-			color.Red("%v\n\n", err)
-			return
-		}
+	exFile, err := getExcelFileHandle(workDirExists, workDir, currDir, fileMonthName)
+	if err != nil {
+		color.Red("%v", err)
+		return
 	}
 
 	//Get account names from excel file but not hardcoded
@@ -103,19 +74,16 @@ func main() {
 	}
 
 	accounts := make([]Accounts, len(accountNames))
-
 	for i := 0; i < len(accountNames); i++ {
 		accounts[i].login = accountNames[i]
 	}
 
 	accounts = make([]Accounts, len(accountNames))
-
 	for i := 0; i < len(accountNames); i++ {
 		accounts[i].login = accountNames[i]
 	}
 
 	accounts = make([]Accounts, len(accountNames))
-
 	for i := 0; i < len(accountNames); i++ {
 		accounts[i].login = accountNames[i]
 	}
@@ -125,7 +93,9 @@ func main() {
 	var totalOverallIncomeInDollars float64
 
 	//both functions store data to the struct
-	checkAndGetFirstCells(exFile, &accounts)
+	if err := checkAndGetFirstCells(exFile, &accounts); err != nil {
+		return //error is shown to console straight from the function
+	}
 	getLastCellValues(exFile, &accounts)
 
 	//Print income of each account and count the total income in loop to print it later
@@ -172,5 +142,40 @@ func main() {
 		totalOverallIncomeInDollars, totalPvproCoinsIncome, fileMonthName, fileMonthNameAlias)
 
 	//2nd file
-	writeToFileOverallIncome(workFolder, fileTotalIncomeName, fileMonthName, totalOverallIncomeInDollars, incomeMonth, incomeYear, fileMonthNameAlias)
+	writeToFileOverallIncome(workDir, fileTotalIncomeName, fileMonthName, totalOverallIncomeInDollars, incomeMonth, incomeYear, fileMonthNameAlias)
+}
+
+func printStartMessage(workDir, currDir string, workDirExists *bool) {
+	if !fileExists(workDir) {
+		nonExistedFile, err := nonExistedFirstDir(workDir)
+		if err != nil {
+			color.Red("%v", err)
+			return
+		}
+
+		if nonExistedFile != workDir {
+			color.Red("Working directory: "+workDir+"\\ not found because %s is missing", nonExistedFile)
+		} else {
+			color.Red("Working directory: " + workDir + "\\ not found")
+		}
+
+		fmt.Print("Current directory: " + currDir + "\\: ")
+
+		*workDirExists = false
+	} else {
+		fmt.Println("Current directory: " + currDir + "\\")
+		fmt.Print("Working directory: " + workDir + "\\")
+		*workDirExists = true
+	}
+
+	fmt.Println()
+}
+
+//Check if file or directory exists
+func fileExists(path string) bool {
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+
+	return false
 }
